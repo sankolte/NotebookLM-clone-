@@ -1,0 +1,13 @@
+{
+  "name": "notebooklm-clone",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "build:server": "npm --prefix server run build",
+    "start:server": "npm --prefix server run start",
+    "dev:client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "start:client": "npm --prefix client run start"
+  }
+}
