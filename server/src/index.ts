@@ -17,6 +17,8 @@ app.use(
 app.use(express.json());
 
 
+import { requireAuth } from "./middleware/require-auth.middleware.js";
+
 app.all("/api/auth/*", toNodeHandler(auth));
 
 
@@ -26,6 +28,15 @@ app.get("/", (req, res) => {
 
 app.get("/health", (req, res) => {
   res.json({ success: true, message: "server is running" });
+});
+
+// Protected route example
+app.get("/api/me", requireAuth, (req, res) => {
+  res.json({
+    success: true,
+    user: req.user,
+    session: req.session,
+  });
 });
 
 
