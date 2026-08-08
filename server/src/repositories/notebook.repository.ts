@@ -1,6 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { handlePrismaError } from "../utils/prisma-error.js";
-import type { Prisma, SourceType } from "@prisma/client";
+import type { Prisma, SourceType, SourceStatus } from "@prisma/client";
 
 export class NotebookRepository {
   async findAllByUserId(userId: string) {
@@ -86,6 +86,17 @@ export class NotebookRepository {
           ...data,
           notebookId,
         },
+      });
+    } catch (error) {
+      handlePrismaError(error);
+    }
+  }
+
+  async updateSource(sourceId: string, notebookId: string, data: { title?: string; type?: SourceType; content?: string; summary?: string; fileUrl?: string; status?: SourceStatus }) {
+    try {
+      return await prisma.source.update({
+        where: { id: sourceId, notebookId },
+        data,
       });
     } catch (error) {
       handlePrismaError(error);

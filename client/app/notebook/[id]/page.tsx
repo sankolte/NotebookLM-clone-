@@ -29,10 +29,14 @@ import {
   Edit3,
   Bot,
   CheckCircle2,
+  Clock,
+  AlertTriangle,
   Cpu,
   ChevronDown,
   FileCode,
   Video,
+  Search,
+  Filter,
 } from "lucide-react";
 
 export default function NotebookWorkspace({ params }: { params: Promise<{ id: string }> }) {
@@ -45,7 +49,7 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
   const [notebook, setNotebook] = useState<Notebook | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Sources State
+  // Sources State & Filters
   const [addSourceOpen, setAddSourceOpen] = useState(false);
   const [sourceType, setSourceType] = useState<"TEXT" | "URL" | "PDF" | "MARKDOWN" | "YT_TRANSCRIPT">("TEXT");
   const [sourceTitle, setSourceTitle] = useState("");
@@ -53,6 +57,20 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
   const [sourceUrl, setSourceUrl] = useState("");
   const [addingSource, setAddingSource] = useState(false);
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
+
+  // Sources Search & Filtering State
+  const [sourceSearchQuery, setSourceSearchQuery] = useState("");
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<"ALL" | "TEXT" | "URL" | "PDF" | "MARKDOWN" | "YT_TRANSCRIPT">("ALL");
+  const [sourceStatusFilter, setSourceStatusFilter] = useState<"ALL" | "READY" | "PROCESSING" | "ERROR">("ALL");
+
+  // Edit Source State
+  const [editSourceModalOpen, setEditSourceModalOpen] = useState(false);
+  const [editSourceId, setEditSourceId] = useState("");
+  const [editSourceTitle, setEditSourceTitle] = useState("");
+  const [editSourceContent, setEditSourceContent] = useState("");
+  const [editSourceSummary, setEditSourceSummary] = useState("");
+  const [editSourceStatus, setEditSourceStatus] = useState<"READY" | "PROCESSING" | "ERROR">("READY");
+  const [updatingSource, setUpdatingSource] = useState(false);
 
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -100,7 +118,7 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
     }
   }, [notebookId]);
 
-  // Handle Switch AI Model directly from Header
+  // Handle Switch AI Model
   const handleSwitchAiModel = async (modelId: string) => {
     try {
       const res = await apiFetch<{ success: boolean; notebook: Notebook }>(`/api/notebooks/${notebookId}`, {
@@ -126,8 +144,8 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
         data: {
           title: sourceTitle,
           type: sourceType,
-          content: sourceType === "TEXT" ? sourceContent : undefined,
-          fileUrl: sourceType === "URL" ? sourceUrl : undefined,
+          content: sourceContent || undefined,
+          fileUrl: sourceUrl || undefined,
         },
       });
       toast.success("Source added!");
@@ -140,6 +158,53 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
       toast.error(err.message || "Failed to add source");
     } finally {
       setAddingSource(false);
+    }
+  };
+
+  // Open Edit Source Modal
+  const openEditSourceModal = (source: Source, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditSourceId(source.id);
+    setEditSourceTitle(source.title);
+    setEditSourceContent(source.content || "");
+    setEditSourceSummary(source.summary || "");
+    setEditSourceStatus(source.status || "READY");
+    setEditSourceModalOpen(true);
+  };
+
+  // Handle Update Source
+  const handleUpdateSource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editSourceTitle.trim()) return;
+
+    setUpdatingSource(true);
+    try {
+      const res = await apiFetch<{ success: boolean; source: Source }>(`/api/notebooks/${notebookId}/sources/${editSourceId}`, {
+        method: "PATCH",
+        data: {
+          title: editSourceTitle,
+          content: editSourceContent || undefined,
+          summary: editSourceSummary || undefined,
+          status: editSourceStatus,
+        },
+      });
+      toast.success("Source updated successfully!");
+      setNotebook((prev) =>
+        prev
+          ? {
+              ...prev,
+              sources: (prev.sources || []).map((s) => (s.id === editSourceId ? res.source : s)),
+            }
+          : prev
+      );
+      if (selectedSource?.id === editSourceId) {
+        setSelectedSource(res.source);
+      }
+      setEditSourceModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update source");
+    } finally {
+      setUpdatingSource(false);
     }
   };
 
@@ -262,6 +327,19 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
     }
   };
 
+  // Filter Sources Logic
+  const filteredSources = (notebook?.sources || []).filter((s) => {
+    const matchesSearch =
+      s.title.toLowerCase().includes(sourceSearchQuery.toLowerCase()) ||
+      (s.content && s.content.toLowerCase().includes(sourceSearchQuery.toLowerCase())) ||
+      (s.summary && s.summary.toLowerCase().includes(sourceSearchQuery.toLowerCase()));
+
+    const matchesType = sourceTypeFilter === "ALL" || s.type === sourceTypeFilter;
+    const matchesStatus = sourceStatusFilter === "ALL" || s.status === sourceStatusFilter;
+
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
@@ -352,13 +430,13 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
 
       {/* Main 3-Panel Layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* PANEL 1: SOURCES (Left Column - 280px to 320px) */}
-        <aside className="w-80 border-r border-zinc-800/80 bg-zinc-950 flex flex-col overflow-hidden flex-shrink-0">
+        {/* PANEL 1: SOURCES (Left Column - 320px) */}
+        <aside className="w-88 border-r border-zinc-800/80 bg-zinc-950 flex flex-col overflow-hidden flex-shrink-0">
           <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-blue-400" />
               <h2 className="font-semibold text-sm text-white">Sources</h2>
-              <span className="text-xs text-zinc-500">({(notebook.sources || []).length})</span>
+              <span className="text-xs text-zinc-500">({filteredSources.length}/{(notebook.sources || []).length})</span>
             </div>
             <Button
               size="sm"
@@ -369,12 +447,75 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
             </Button>
           </div>
 
+          {/* Sources Search & Filter Bar */}
+          <div className="p-3 border-b border-zinc-800/80 space-y-2 bg-zinc-950/60">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+              <Input
+                type="text"
+                placeholder="Search sources..."
+                value={sourceSearchQuery}
+                onChange={(e) => setSourceSearchQuery(e.target.value)}
+                className="bg-zinc-900 border-zinc-800 text-white pl-8 pr-3 py-1.5 h-8 rounded-lg text-xs placeholder:text-zinc-500"
+              />
+            </div>
+
+            {/* Type Filter Pills */}
+            <div className="flex items-center gap-1 overflow-x-auto text-[10px] pb-1 no-scrollbar">
+              {[
+                { id: "ALL", label: "All" },
+                { id: "TEXT", label: "Text" },
+                { id: "URL", label: "Web" },
+                { id: "MARKDOWN", label: "Markdown" },
+                { id: "YT_TRANSCRIPT", label: "YouTube" },
+                { id: "PDF", label: "PDF" },
+              ].map((filter) => (
+                <button
+                  key={filter.id}
+                  onClick={() => setSourceTypeFilter(filter.id as any)}
+                  className={`px-2.5 py-1 rounded-full border transition-colors shrink-0 ${
+                    sourceTypeFilter === filter.id
+                      ? "bg-blue-600/20 border-blue-500 text-blue-400 font-semibold"
+                      : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center justify-between text-[11px] text-zinc-400">
+              <span className="flex items-center gap-1">
+                <Filter className="w-3 h-3 text-zinc-500" /> Status:
+              </span>
+              <div className="flex items-center gap-1">
+                {["ALL", "READY", "PROCESSING", "ERROR"].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setSourceStatusFilter(st as any)}
+                    className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-medium ${
+                      sourceStatusFilter === st ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Sources List */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {(notebook.sources || []).length === 0 ? (
+            {filteredSources.length === 0 ? (
               <div className="text-center py-12 px-4 border border-dashed border-zinc-800 rounded-xl">
                 <FileText className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
-                <p className="text-xs text-zinc-400 font-medium">No sources added yet</p>
-                <p className="text-[11px] text-zinc-500 mt-1">Add text notes, URLs, or PDFs to ground your AI answers.</p>
+                <p className="text-xs text-zinc-400 font-medium">No sources found</p>
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  {sourceSearchQuery || sourceTypeFilter !== "ALL" || sourceStatusFilter !== "ALL"
+                    ? "Try adjusting your search or filter parameters."
+                    : "Add text notes, URLs, or PDFs to ground your AI answers."}
+                </p>
                 <Button
                   size="sm"
                   onClick={() => setAddSourceOpen(true)}
@@ -384,7 +525,7 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
                 </Button>
               </div>
             ) : (
-              notebook.sources?.map((s) => (
+              filteredSources.map((s) => (
                 <div
                   key={s.id}
                   onClick={() => setSelectedSource(s)}
@@ -403,22 +544,52 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
                       )}
                       <span className="font-medium text-xs text-white truncate">{s.title}</span>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSource(s.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 text-zinc-500 hover:text-red-400"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => openEditSourceModal(s, e)}
+                        title="Edit Source"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 text-zinc-400 hover:text-blue-400"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSource(s.id);
+                        }}
+                        title="Delete Source"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 text-zinc-500 hover:text-red-400"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
+
                   {s.content && <p className="text-[11px] text-zinc-500 line-clamp-2">{s.content}</p>}
+
                   <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-1">
-                    <span className="inline-flex items-center gap-1 text-emerald-400">
-                      <CheckCircle2 className="w-3 h-3" /> Ready
+                    <span
+                      className={`inline-flex items-center gap-1 font-medium ${
+                        s.status === "READY"
+                          ? "text-emerald-400"
+                          : s.status === "PROCESSING"
+                          ? "text-amber-400 animate-pulse"
+                          : "text-rose-400"
+                      }`}
+                    >
+                      {s.status === "READY" ? (
+                        <CheckCircle2 className="w-3 h-3" />
+                      ) : s.status === "PROCESSING" ? (
+                        <Clock className="w-3 h-3" />
+                      ) : (
+                        <AlertTriangle className="w-3 h-3" />
+                      )}
+                      {s.status}
                     </span>
                     <span>{new Date(s.createdAt).toLocaleDateString()}</span>
                   </div>
@@ -545,7 +716,7 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
           </div>
         </main>
 
-        {/* PANEL 3: STUDIO & ARTIFACTS (Right Column - 300px to 340px) */}
+        {/* PANEL 3: STUDIO & ARTIFACTS (Right Column - 320px) */}
         <aside className="w-80 border-l border-zinc-800/80 bg-zinc-950 flex flex-col overflow-hidden flex-shrink-0">
           <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -740,6 +911,82 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
         </DialogContent>
       </Dialog>
 
+      {/* Edit Source Dialog */}
+      <Dialog open={editSourceModalOpen} onOpenChange={setEditSourceModalOpen}>
+        <DialogContent className="sm:max-w-md bg-zinc-950 text-white border-zinc-800">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Edit Source</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateSource} className="space-y-3 pt-2">
+            <div>
+              <label className="text-xs font-medium text-zinc-400">Source Title *</label>
+              <Input
+                type="text"
+                value={editSourceTitle}
+                onChange={(e) => setEditSourceTitle(e.target.value)}
+                required
+                className="bg-zinc-900 border-zinc-800 text-white mt-1 text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-zinc-400">Status</label>
+              <div className="flex items-center gap-2 mt-1">
+                {(["READY", "PROCESSING", "ERROR"] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setEditSourceStatus(st)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      editSourceStatus === st
+                        ? st === "READY"
+                          ? "bg-emerald-600/20 border-emerald-500 text-emerald-400"
+                          : st === "PROCESSING"
+                          ? "bg-amber-600/20 border-amber-500 text-amber-400"
+                          : "bg-rose-600/20 border-rose-500 text-rose-400"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-zinc-400">Content</label>
+              <Textarea
+                value={editSourceContent}
+                onChange={(e) => setEditSourceContent(e.target.value)}
+                rows={4}
+                className="bg-zinc-900 border-zinc-800 text-white mt-1 resize-none text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-zinc-400">Summary (Optional)</label>
+              <Textarea
+                value={editSourceSummary}
+                onChange={(e) => setEditSourceSummary(e.target.value)}
+                rows={2}
+                placeholder="Source summary or key takeaways..."
+                className="bg-zinc-900 border-zinc-800 text-white mt-1 resize-none text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="ghost" onClick={() => setEditSourceModalOpen(false)} className="text-zinc-400">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updatingSource} className="bg-blue-600 hover:bg-blue-500 text-white text-xs">
+                {updatingSource ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Note Dialog */}
       <Dialog open={createNoteOpen} onOpenChange={setCreateNoteOpen}>
         <DialogContent className="sm:max-w-md bg-zinc-950 text-white border-zinc-800">
@@ -845,17 +1092,47 @@ export default function NotebookWorkspace({ params }: { params: Promise<{ id: st
       <Dialog open={!!selectedSource} onOpenChange={(o) => !o && setSelectedSource(null)}>
         {selectedSource && (
           <DialogContent className="sm:max-w-xl bg-zinc-950 text-white border-zinc-800">
-            <DialogHeader>
+            <DialogHeader className="flex flex-row items-center justify-between space-y-0">
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <FileText className="w-4 h-4 text-blue-400" /> {selectedSource.title}
               </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const s = selectedSource;
+                  setSelectedSource(null);
+                  openEditSourceModal(s);
+                }}
+                className="bg-zinc-900 border-zinc-800 text-xs text-zinc-300 hover:text-white"
+              >
+                <Edit3 className="w-3.5 h-3.5 mr-1" /> Edit Source
+              </Button>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <div className="flex items-center gap-2 text-xs text-zinc-400">
-                <span>Type: {selectedSource.type}</span>
-                <span>•</span>
+              <div className="flex items-center gap-3 text-xs text-zinc-400">
+                <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
+                  Type: {selectedSource.type}
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded border text-[10px] font-bold ${
+                    selectedSource.status === "READY"
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      : selectedSource.status === "PROCESSING"
+                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                      : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                  }`}
+                >
+                  {selectedSource.status}
+                </span>
                 <span>Added {new Date(selectedSource.createdAt).toLocaleString()}</span>
               </div>
+              {selectedSource.summary && (
+                <div className="bg-blue-950/20 border border-blue-500/20 rounded-xl p-3 text-xs text-blue-300">
+                  <span className="font-semibold block mb-1">Source Summary:</span>
+                  {selectedSource.summary}
+                </div>
+              )}
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 max-h-80 overflow-y-auto text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">
                 {selectedSource.content || selectedSource.fileUrl || "No raw text content available."}
               </div>

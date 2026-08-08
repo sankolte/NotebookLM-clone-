@@ -35,22 +35,6 @@ export const deleteNotebook = wrapAsync(async (req: Request, res: Response) => {
   res.json({ success: true, message: "Notebook deleted successfully" });
 });
 
-// Sources
-export const addSource = wrapAsync(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
-  const notebookId = req.params.id as string;
-  const source = await notebookService.addSource(notebookId, userId, req.body);
-  res.status(201).json({ success: true, source });
-});
-
-export const deleteSource = wrapAsync(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
-  const notebookId = req.params.id as string;
-  const sourceId = req.params.sourceId as string;
-  await notebookService.deleteSource(sourceId, notebookId, userId);
-  res.json({ success: true, message: "Source deleted successfully" });
-});
-
 // Chat
 export const addChatMessage = wrapAsync(async (req: Request, res: Response) => {
   const userId = req.user!.id;

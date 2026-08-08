@@ -1,6 +1,6 @@
 import { notebookRepository, NotebookRepository } from "../repositories/notebook.repository.js";
 import { ExpressError } from "../utils/express-error.js";
-import type { SourceType } from "@prisma/client";
+import type { SourceType, SourceStatus } from "@prisma/client";
 
 export class NotebookService {
   constructor(private repo: NotebookRepository = notebookRepository) {}
@@ -35,6 +35,11 @@ export class NotebookService {
   async addSource(notebookId: string, userId: string, data: { title: string; type: SourceType; content?: string; summary?: string; fileUrl?: string }) {
     await this.getNotebookById(notebookId, userId);
     return await this.repo.addSource(notebookId, data);
+  }
+
+  async updateSource(sourceId: string, notebookId: string, userId: string, data: { title?: string; type?: SourceType; content?: string; summary?: string; fileUrl?: string; status?: SourceStatus }) {
+    await this.getNotebookById(notebookId, userId);
+    return await this.repo.updateSource(sourceId, notebookId, data);
   }
 
   async deleteSource(sourceId: string, notebookId: string, userId: string) {

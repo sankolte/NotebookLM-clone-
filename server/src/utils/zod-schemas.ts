@@ -36,7 +36,16 @@ export const createSourceSchema = z.object({
   type: z.enum(["PDF", "TEXT", "URL", "MARKDOWN", "YT_TRANSCRIPT"]).default("TEXT"),
   content: z.string().optional(),
   summary: z.string().optional(),
-  fileUrl: z.string().url("Invalid file URL").optional(),
+  fileUrl: z.string().optional(),
+});
+
+export const updateSourceSchema = z.object({
+  title: z.string().min(1, "Source title cannot be empty").optional(),
+  type: z.enum(["PDF", "TEXT", "URL", "MARKDOWN", "YT_TRANSCRIPT"]).optional(),
+  content: z.string().optional(),
+  summary: z.string().optional(),
+  fileUrl: z.string().optional(),
+  status: z.enum(["PROCESSING", "READY", "ERROR"]).optional(),
 });
 
 // Chat Message Schemas

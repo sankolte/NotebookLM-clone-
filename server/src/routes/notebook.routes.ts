@@ -4,17 +4,20 @@ import { validateBody, validateParams } from "../middleware/validate.middleware.
 import {
   createNotebookSchema,
   updateNotebookSchema,
-  createSourceSchema,
   createChatMessageSchema,
   createArtifactSchema,
   notebookIdParamSchema,
 } from "../utils/zod-schemas.js";
 import * as notebookController from "../controllers/notebook.controller.js";
+import sourceRoutes from "./source.routes.js";
 
 const router = Router();
 
 // Apply auth middleware to all notebook routes
 router.use(requireAuth);
+
+// Mount Sub-routers for Sources
+router.use("/:id/sources", sourceRoutes);
 
 // Notebook CRUD
 router.get("/", notebookController.getNotebooks);
@@ -27,19 +30,6 @@ router.patch(
   notebookController.updateNotebook
 );
 router.delete("/:id", validateParams(notebookIdParamSchema), notebookController.deleteNotebook);
-
-// Sources
-router.post(
-  "/:id/sources",
-  validateParams(notebookIdParamSchema),
-  validateBody(createSourceSchema),
-  notebookController.addSource
-);
-router.delete(
-  "/:id/sources/:sourceId",
-  validateParams(notebookIdParamSchema),
-  notebookController.deleteSource
-);
 
 // Chat Messages
 router.post(
