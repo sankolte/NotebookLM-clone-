@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { getSession, type User, type Session } from "../lib/session.js";
+import { ExpressError } from "../utils/express-error.js";
 
 declare global {
   namespace Express {
@@ -19,12 +20,7 @@ export async function requireAuth(
     const sessionData = await getSession(req.headers);
 
     if (!sessionData || !sessionData.session) {
-      res.status(401).json({
-        success: false,
-        error: "Unauthorized",
-        message: "Authentication required to access this resource",
-      });
-      return;
+      throw new ExpressError(401, "Authentication required to access this resource");
     }
 
     req.user = sessionData.user;
@@ -32,11 +28,6 @@ export async function requireAuth(
 
     next();
   } catch (error) {
-    console.error("Error in requireAuth middleware:", error);
-    res.status(500).json({
-      success: false,
-      error: "Internal Server Error",
-      message: "An error occurred while verifying authentication",
-    });
+    next(error);
   }
 }
